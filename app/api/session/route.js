@@ -12,20 +12,27 @@ if (!admin.apps.length) {
   });
 }
 
+// Helper to verify ID Token from Authorization header
+async function verifyUser(request) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) return null;
+  const token = authHeader.split('Bearer ')[1];
+  try {
+    return await admin.auth().verifyIdToken(token);
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const sessionId = searchParams.get('sessionId');
-
-    if (!sessionId) {
-      return NextResponse.json({ error: 'Missing sessionId parameter' }, { status: 400 });
-    }
+    if (!sessionId) return NextResponse.json({ error: 'Missing sessionId' }, { status: 400 });
 
     const snapshot = await admin.database().ref(`sessions/${sessionId}`).once('value');
     const val = snapshot.val();
-    
-    const sessionData = (val && val.sessionData) ? val.sessionData : val;
-    return NextResponse.json({ sessionData: sessionData || null });
+    return NextResponse.json({ sessionData: val?.sessionData || val || null });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -33,13 +40,11 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const { userId, sessionData } = await request.json();
+    const decodedToken = await verifyUser(request);
+    if (!decodedToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    if (!userId) {
-      return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
-    }
-
-    await admin.database().ref(`sessions/${userId}`).set({ sessionData });
+    const { sessionData } = await request.json();
+    await admin.database().ref(`sessions/${decodedToken.uid}`).set({ sessionData });
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -48,15 +53,13 @@ export async function POST(request) {
 
 export async function DELETE(request) {
   try {
-    const { userId } = await request.json();
+    const decodedToken = await verifyUser(request);
+    if (!decodedToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    if (!userId) {
-      return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
-    }
-
-    await admin.database().ref(`sessions/${userId}`).remove();
+    await admin.database().ref(`sessions/${decodedToken.uid}`).remove();
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-}
+                                                            }
+    
