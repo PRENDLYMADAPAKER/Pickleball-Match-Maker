@@ -12,7 +12,6 @@ if (!admin.apps.length) {
   });
 }
 
-
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -23,12 +22,14 @@ export async function GET(request) {
     }
 
     const snapshot = await admin.database().ref(`sessions/${sessionId}`).once('value');
-    return NextResponse.json(snapshot.val() || {});
+    const val = snapshot.val();
+    
+    const sessionData = (val && val.sessionData) ? val.sessionData : val;
+    return NextResponse.json({ sessionData: sessionData || null });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
-
 
 export async function POST(request) {
   try {
@@ -45,7 +46,6 @@ export async function POST(request) {
   }
 }
 
-
 export async function DELETE(request) {
   try {
     const { userId } = await request.json();
@@ -59,4 +59,4 @@ export async function DELETE(request) {
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  }
+}
