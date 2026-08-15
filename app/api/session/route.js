@@ -12,23 +12,51 @@ if (!admin.apps.length) {
   });
 }
 
-// Fetch session data from Firebase
-export async function GET() {
+
+export async function GET(request) {
   try {
-    const snapshot = await admin.database().ref('sessions/current').once('value');
+    const { searchParams } = new URL(request.url);
+    const sessionId = searchParams.get('sessionId');
+
+    if (!sessionId) {
+      return NextResponse.json({ error: 'Missing sessionId parameter' }, { status: 400 });
+    }
+
+    const snapshot = await admin.database().ref(`sessions/${sessionId}`).once('value');
     return NextResponse.json(snapshot.val() || {});
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// Save session data to Firebase
+
 export async function POST(request) {
   try {
-    const data = await request.json();
-    await admin.database().ref('sessions/current').set(data);
+    const { userId, sessionData } = await request.json();
+
+    if (!userId) {
+      return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
+    }
+
+    await admin.database().ref(`sessions/${userId}`).set({ sessionData });
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+
+export async function DELETE(request) {
+  try {
+    const { userId } = await request.json();
+
+    if (!userId) {
+      return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
+    }
+
+    await admin.database().ref(`sessions/${userId}`).remove();
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  }
