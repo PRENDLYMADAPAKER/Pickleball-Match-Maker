@@ -247,8 +247,13 @@ async function loginOrRegister() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'login', email, password })
     });
-    const data = await res.json();
 
+    const contentType = res.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error(`Server route not found or returned non-JSON (${res.status}). Verify app/api/session/route.js path.`);
+    }
+
+    const data = await res.json();
     if (!res.ok || data.error) throw new Error(data.error || 'Authentication failed');
 
     localStorage.setItem(SESSION_ID_KEY, data.sessionId);
@@ -256,13 +261,7 @@ async function loginOrRegister() {
     
     updateAuthUI();
     toggleAuthDrawer();
-
-    if (data.isNew) {
-      alert("Account created successfully!");
-    } else {
-      alert("Logged in successfully!");
-    }
-
+    alert(data.isNew ? "Account created successfully!" : "Logged in successfully!");
     saveToStorage();
   } catch (error) {
     alert("Auth Error: " + error.message);
