@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NZM Pickle Queue</title>
+  <style>
+    :root {
+      --bg-color: #080c14;
+      --card-bg: #0f172a;
+      --card-hover: #1e293b;
+      --accent: #22c55e;
+      --accent-hover: #16a34a;
+      --accent-glow: rgba(34, 197, 94, 0.18);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --border-color: #1e293b;
+      --border-highlight: #334155;
+      --danger: #ef4444;
+      --info: #3b82f6;
+      /* STRICT SHARP EDGES */
+      --radius: 0px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg-color); color: var(--text-main); padding-bottom: 40px; min-height: 100vh; }
+    
+    .view { display: none; }
+    .view.active { display: block; }
+
+    /* Top App Bar Header */
+    .app-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 20px;
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 20px;
+    }
+    .header-logo-container { display: flex; align-items: center; gap: 10px; }
+    .header-logo { height: 40px; width: auto; object-fit: contain; }
+    .header-logo-fallback { display: none; font-weight: 900; font-size: 1.1rem; color: var(--accent); letter-spacing: 1px; }
+
+    .header-right { display: flex; align-items: center; gap: 12px; }
+
+    /* Layout Containers */
+    .hero-container { max-width: 820px; margin: 0 auto; padding: 0 16px; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 16px; display: grid; grid-template-columns: 1fr; gap: 20px; }
+    @media (min-width: 900px) { .container { grid-template-columns: 1.2fr 0.8fr; } }
+
+    .tagline { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 20px; text-align: center; line-height: 1.5; }
+    
+    .badge-free { 
+      background: rgba(34, 197, 94, 0.08); 
+      color: var(--accent); 
+      padding: 4px 12px; 
+      border-radius: var(--radius); 
+      font-weight: 700; 
+      font-size: 0.75rem; 
+      display: block;
+      width: fit-content;
+      margin: 0 auto 10px auto;
+      border: 1px solid var(--accent); 
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+
+    /* Cards & Tiles */
+    .card { 
+      background: var(--card-bg); 
+      border: 1px solid var(--border-color); 
+      border-radius: var(--radius); 
+      padding: 20px; 
+      margin-bottom: 20px; 
+      text-align: left; 
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      position: relative;
+    }
+    .card h2 { 
+      font-size: 1rem; 
+      margin-bottom: 16px; 
+      border-bottom: 1px solid var(--border-color); 
+      padding-bottom: 10px; 
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Stacked Format Selection Boxes */
+    .match-option-box {
+      background: #04070d;
+      border: 1px solid var(--border-highlight);
+      padding: 16px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 15px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .match-option-box:hover {
+      border-color: var(--accent);
+      background: #0a1120;
+    }
+    .match-option-info { display: flex; align-items: center; gap: 14px; }
+    .match-icon-badge {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      width: 45px;
+      height: 45px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+    }
+
+    /* Form Inputs & Buttons */
+    .input-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+    label { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; }
+    
+    input[type="text"], input[type="number"], input[type="email"], input[type="password"] { 
+      padding: 12px 14px; 
+      background: #04070d; 
+      border: 1px solid var(--border-highlight); 
+      border-radius: var(--radius); 
+      color: #fff; 
+      font-size: 0.9rem; 
+      width: 100%; 
+      transition: all 0.2s ease;
+    }
+    input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    button { 
+      padding: 12px 18px; 
+      border: 1px solid transparent; 
+      border-radius: var(--radius); 
+      font-weight: 700; 
+      font-size: 0.8rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      cursor: pointer; 
+      transition: all 0.2s ease; 
+    }
+    .btn-primary { background: var(--accent); color: #000; border-color: var(--accent); }
+    .btn-primary:hover { background: var(--accent-hover); box-shadow: 0 0 15px var(--accent-glow); }
+    .btn-secondary { background: #1e293b; color: var(--text-main); border-color: var(--border-highlight); }
+    .btn-secondary:hover { background: #334155; }
+    .btn-danger { background: transparent; border: 1px solid var(--danger); color: var(--danger); padding: 6px 10px; font-size: 0.7rem; }
+    .btn-danger:hover { background: var(--danger); color: #fff; }
+    .btn-outline { background: transparent; border: 1px solid var(--border-highlight); color: var(--text-main); }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* Court Display Layout */
+    .courts-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+    .courts-grid { display: grid; grid-template-columns: 1fr; gap: 15px; margin-bottom: 15px; }
+    @media (min-width: 600px) { .courts-grid { grid-template-columns: 1fr 1fr; } }
+
+    .court-card {
+      background: #04070d;
+      border: 1px solid var(--border-highlight);
+      padding: 16px;
+      position: relative;
+    }
+    .court-card.has-match { border-color: var(--accent); box-shadow: 0 0 12px var(--accent-glow); }
+    .court-title { display: flex; justify-content: space-between; align-items: center; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); margin-bottom: 12px; font-size: 0.85rem; }
+
+    .match-teams { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; margin: 10px 0; }
+    .team { background: var(--card-bg); padding: 12px; border: 1px solid var(--border-color); text-align: center; }
+    .vs { font-weight: 900; color: var(--accent); font-size: 1rem; }
+    .team-players { font-size: 0.9rem; font-weight: 700; margin-bottom: 8px; }
+
+    /* Player List & Standings */
+    .player-list { list-style: none; display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; }
+    .player-item { display: flex; justify-content: space-between; align-items: center; background: #04070d; padding: 10px 14px; border: 1px solid var(--border-color); }
+    
+    .tag { background: #1e293b; padding: 3px 8px; font-size: 0.65rem; color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; font-weight: 700; }
+    .tag-danger { background: rgba(239, 68, 68, 0.2); color: var(--danger); border: 1px solid var(--danger); }
+
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th, td { padding: 10px; border-bottom: 1px solid var(--border-color); font-size: 0.85rem; }
+    th { color: var(--text-muted); font-weight: 700; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 1px; }
+    .win-rate { font-weight: bold; color: var(--accent); }
+
+    /* Collapsible / Modal Cloud Login Drawer */
+    .auth-drawer {
+      display: none;
+      position: fixed;
+      top: 65px;
+      right: 20px;
+      width: 320px;
+      background: var(--card-bg);
+      border: 1px solid var(--border-highlight);
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+      z-index: 1000;
+    }
+    .auth-drawer.open { display: block; }
+
+    .storage-banner { 
+      background: rgba(15, 23, 42, 0.8); 
+      border: 1px solid var(--border-highlight); 
+      color: var(--text-muted); 
+      padding: 10px 14px; 
+      font-size: 0.75rem; 
+      margin-bottom: 20px; 
+      text-align: center; 
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOP GLOBAL HEADER -->
+  <header class="app-header">
+    <div class="header-logo-container">
+      <img src="logo.png" alt="NZM Pickle Queue" class="header-logo" id="headerLogo" onerror="this.style.display='none'; document.getElementById('headerLogoFallback').style.display='block';">
+      <div class="header-logo-fallback" id="headerLogoFallback">NZM PICKLE QUEUE</div>
+    </div>
+
+    <div class="header-right">
+      <button class="btn-secondary" onclick="toggleAuthDrawer()" style="display: flex; align-items: center; gap: 8px; padding: 8px 14px;">
+        <span style="font-size: 1.1rem;">☁️</span>
+        <span id="headerAuthLabel">Cloud Login</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- CLOUD SYNC & AUTH DRAWER MODAL -->
+  <div class="auth-drawer" id="authDrawer">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+      <strong style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">Cloud Sync & Auth</strong>
+      <button class="btn-danger" style="padding: 2px 8px;" onclick="toggleAuthDrawer()">✕</button>
+    </div>
+
+    <div id="authLoggedOut">
+      <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 12px;">Sign in to sync courts and queue across multiple devices in real-time.</p>
+      <div class="input-group">
+        <input type="email" id="loginEmail" placeholder="Email address">
+      </div>
+      <div class="input-group">
+        <input type="password" id="loginPassword" placeholder="Password">
+      </div>
+      <button class="btn-primary" style="width: 100%;" onclick="loginOrRegister()">Log In / Sign Up</button>
+    </div>
+
+    <div id="authLoggedIn" style="display: none; text-align: center;">
+      <p style="margin-bottom: 12px; color: var(--accent); font-weight: 700; font-size: 0.85rem;" id="userDisplayEmail"></p>
+      <button class="btn-secondary" style="width: 100%;" onclick="logout()">Log Out</button>
+    </div>
+  </div>
+
+  <!-- VIEW 1: HOMEPAGE SETUP -->
+  <div id="viewHome" class="view active">
+    <div class="hero-container">
+      
+      <span class="badge-free">100% Free Open Play Organizer</span>
+      <p class="tagline">The effortless queue manager, multi-court tracker, and standings engine for pickleball clubs and open play sessions.</p>
+
+      <div class="storage-banner" id="storageBanner">
+        💾 Matches and standings auto-save locally to your browser (localStorage).
+      </div>
+
+      <!-- Match Game Setup Form -->
+      <div class="card">
+        <h2>Start a Match Game</h2>
+        
+        <div class="input-group">
+          <label for="sessionTitleInput">Session or Event Name</label>
+          <input type="text" id="sessionTitleInput" placeholder="e.g., Tuesday Night Rec Play, Summer League">
+        </div>
+
+        <div class="input-group">
+          <label for="maxGamesInput">Maximum Games Per Player (Fair Play Cap)</label>
+          <input type="number" id="maxGamesInput" placeholder="e.g. 4 (Leave blank for no limit)" min="1">
+        </div>
+
+        <label style="margin-top: 10px; display: block; margin-bottom: 10px;">Select Format to Launch Session:</label>
+        
+        <!-- Upper Option: Single Match -->
+        <div class="match-option-box" onclick="launchMatchGame('singles')">
+          <div class="match-option-info">
+            <div class="match-icon-badge">👤</div>
+            <div>
+              <strong style="display: block; font-size: 0.95rem;">Single Match (1v1)</strong>
+              <span style="font-size: 0.75rem; color: var(--text-muted);">Head-to-head singles competition format</span>
+            </div>
+          </div>
+          <button class="btn-primary">Launch 1v1</button>
+        </div>
+
+        <!-- Lower Option: Doubles Match -->
+        <div class="match-option-box" onclick="launchMatchGame('doubles')">
+          <div class="match-option-info">
+            <div class="match-icon-badge">👥</div>
+            <div>
+              <strong style="display: block; font-size: 0.95rem;">Doubles Match (2v2)</strong>
+              <span style="font-size: 0.75rem; color: var(--text-muted);">Standard 4-player team rotation format</span>
+            </div>
+          </div>
+          <button class="btn-primary">Launch 2v2</button>
+        </div>
+      </div>
+
+      <!-- Resume Saved Session -->
+      <div class="card" id="resumeCard" style="display: none;">
+        <h2>Saved Session Found</h2>
+        <p style="color: var(--text-muted); margin-bottom: 15px; font-size: 0.85rem;" id="resumeDetails">You have an ongoing session saved.</p>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn-primary" style="flex: 1;" onclick="resumeSession()">Resume Session</button>
+          <button class="btn-secondary" onclick="clearSavedData()">Delete Saved Session</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- VIEW 2: MATCH GAME DASHBOARD -->
+  <div id="viewApp" class="view">
+    <div class="container">
+      
+      <!-- LEFT COLUMN: Courts & Queue -->
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+          <div>
+            <h1 id="displaySessionTitle" style="font-size: 1.2rem; text-transform: uppercase; color: var(--text-main);">Match Game</h1>
+            <span id="displayMatchFormat" class="tag"></span>
+            <span id="displayMaxCap" class="tag" style="margin-left: 5px;"></span>
+          </div>
+          <button class="btn-secondary" onclick="goHome()">← Home Setup</button>
+        </div>
+
+        <!-- Add Player Form -->
+        <div class="card">
+          <h2>Add Players to Queue</h2>
+          <div class="input-group" style="flex-direction: row;">
+            <input type="text" id="playerNameInput" placeholder="Enter player name..." onkeydown="if(event.key==='Enter') addPlayer()">
+            <button class="btn-primary" onclick="addPlayer()">Add</button>
+          </div>
+        </div>
+
+        <!-- Multi-Court Management Container -->
+        <div class="card">
+          <div class="courts-header">
+            <h2 style="border: none; margin: 0; padding: 0;">Courts (<span id="courtCountDisplay">1</span>)</h2>
+            <button class="btn-outline" style="font-size: 0.75rem; padding: 6px 12px;" onclick="addCourt()">+ Add Court</button>
+          </div>
+          
+          <div id="courtsGrid" class="courts-grid"></div>
+
+          <button class="btn-primary" style="width: 100%; font-size: 0.85rem;" onclick="generateAutoMatch()">⚡ Auto-Assign Next Available Court</button>
+        </div>
+
+        <!-- Waiting Queue -->
+        <div class="card">
+          <h2>Waiting Queue (<span id="queueCount">0</span>)</h2>
+          <ul id="playerQueue" class="player-list"></ul>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN: Standings -->
+      <div>
+        <div class="card">
+          <h2>Individual Standings</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Player</th>
+                <th>Played</th>
+                <th>W-L</th>
+                <th>Win %</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="standingsTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDAtr2j0iQk1PuYLcqJjIw1IqfsyCCLUUY",
+      authDomain: "pickleqeue.firebaseapp.com",
+      databaseURL: "https://pickleqeue-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "pickleqeue",
+      storageBucket: "pickleqeue.firebasestorage.app",
+      messagingSenderId: "663355197557",
+      appId: "1:663355197557:web:4c2abd694e26fd2d93903c",
+      measurementId: "G-8YZC5R007M"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    let currentUser = null;
+    let dbUnsubscribe = null;
+    
+    // State including Unlimited Courts and Fair Play Max Cap
+    let sessionData = {
+      title: "",
+      mode: "doubles",
+      maxGames: null,
+      players: [],
+      courts: [
+        { id: 1, name: "Court 1", activeMatch: null }
+      ]
+    };
+
+    const STORAGE_KEY = 'pb_session_store_v2';
+
+    onAuthStateChanged(auth, (user) => {
+      currentUser = user;
+      const banner = document.getElementById('storageBanner');
+      const authLoggedOut = document.getElementById('authLoggedOut');
+      const authLoggedIn = document.getElementById('authLoggedIn');
+      const userDisplayEmail = document.getElementById('userDisplayEmail');
+      const headerAuthLabel = document.getElementById('headerAuthLabel');
+
+      if (user) {
+        authLoggedOut.style.display = 'none';
+        authLoggedIn.style.display = 'block';
+        userDisplayEmail.textContent = user.email.toUpperCase();
+        headerAuthLabel.textContent = "Synced";
+
+        banner.style.borderColor = 'var(--accent)';
+        banner.style.color = 'var(--accent)';
+        banner.innerHTML = `☁️ Realtime Cloud Sync Active (${user.email})`;
+
+        const userRef = ref(db, 'sessions/' + user.uid);
+        dbUnsubscribe = onValue(userRef, (snapshot) => {
+          const val = snapshot.val();
+          if (val) {
+            sessionData = val;
+            if (!sessionData.players) sessionData.players = [];
+            if (!sessionData.courts) sessionData.courts = [{ id: 1, name: "Court 1", activeMatch: null }];
+            checkSavedSession();
+            render();
+          }
+        });
+      } else {
+        if (dbUnsubscribe) dbUnsubscribe();
+        authLoggedOut.style.display = 'block';
+        authLoggedIn.style.display = 'none';
+        headerAuthLabel.textContent = "Cloud Login";
+
+        banner.style.borderColor = 'var(--border-highlight)';
+        banner.style.color = 'var(--text-muted)';
+        banner.innerHTML = `💾 Matches and standings auto-save locally to your browser (localStorage).`;
+      }
+    });
+
+    function toggleAuthDrawer() {
+      document.getElementById('authDrawer').classList.toggle('open');
+    }
+
+    async function loginOrRegister() {
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value.trim();
+
+      if (!email || !password) return alert("Please enter email and password.");
+
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+        toggleAuthDrawer();
+      } catch (error) {
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+          try {
+            await createUserWithEmailAndPassword(auth, email, password);
+            alert("New account created!");
+            toggleAuthDrawer();
+          } catch (createErr) { alert("Error signing up: " + createErr.message); }
+        } else { alert("Auth Error: " + error.message); }
+      }
+    }
+
+    async function logout() {
+      await signOut(auth);
+      location.reload();
+    }
+
+    function saveToStorage() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
+      if (currentUser) {
+        set(ref(db, 'sessions/' + currentUser.uid), sessionData).catch(err => console.error("Firebase sync error:", err));
+      }
+    }
+
+    function checkSavedSession() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed && (parsed.players.length > 0 || parsed.title)) {
+            document.getElementById('resumeCard').style.display = 'block';
+            document.getElementById('resumeDetails').textContent = `Saved Session: "${parsed.title || 'Untitled Play'}" with ${parsed.players.length} player(s).`;
+          }
+        } catch(e) {}
+      }
+    }
+
+    function showView(viewId) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById(viewId).classList.add('active');
+    }
+
+    function launchMatchGame(selectedMode) {
+      const titleInput = document.getElementById('sessionTitleInput').value.trim();
+      const maxInput = parseInt(document.getElementById('maxGamesInput').value, 10);
+
+      sessionData.title = titleInput || `${selectedMode === 'singles' ? 'Singles' : 'Doubles'} Open Play`;
+      sessionData.mode = selectedMode;
+      sessionData.maxGames = !isNaN(maxInput) && maxInput > 0 ? maxInput : null;
+
+      saveToStorage();
+      startSessionUI();
+    }
+
+    function resumeSession() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        sessionData = JSON.parse(raw);
+        if (!sessionData.players) sessionData.players = [];
+        if (!sessionData.courts) sessionData.courts = [{ id: 1, name: "Court 1", activeMatch: null }];
+        startSessionUI();
+      }
+    }
+
+    function startSessionUI() {
+      document.getElementById('displaySessionTitle').textContent = sessionData.title;
+      document.getElementById('displayMatchFormat').textContent = sessionData.mode + " format";
+      document.getElementById('displayMaxCap').textContent = sessionData.maxGames ? `Max ${sessionData.maxGames} Games Cap` : 'No Cap';
+      showView('viewApp');
+      render();
+    }
+
+    function goHome() {
+      saveToStorage();
+      checkSavedSession();
+      showView('viewHome');
+    }
+
+    function clearSavedData() {
+      if (confirm("Delete current session and data?")) {
+        localStorage.removeItem(STORAGE_KEY);
+        if (currentUser) set(ref(db, 'sessions/' + currentUser.uid), null);
+        sessionData = { title: "", mode: "doubles", maxGames: null, players: [], courts: [{ id: 1, name: "Court 1", activeMatch: null }] };
+        document.getElementById('resumeCard').style.display = 'none';
+        render();
+      }
+    }
+
+    /* UNLIMITED COURTS MANAGEMENT */
+    function addCourt() {
+      const newCourtId = sessionData.courts.length > 0 ? Math.max(...sessionData.courts.map(c => c.id)) + 1 : 1;
+      sessionData.courts.push({
+        id: newCourtId,
+        name: `Court ${newCourtId}`,
+        activeMatch: null
+      });
+      saveToStorage();
+      render();
+    }
+
+    function removeCourt(courtId) {
+      const targetCourt = sessionData.courts.find(c => c.id === courtId);
+      if (targetCourt && targetCourt.activeMatch) {
+        alert("Cannot remove a court with an active match in progress.");
+        return;
+      }
+      if (sessionData.courts.length <= 1) {
+        alert("You must keep at least 1 court.");
+        return;
+      }
+      sessionData.courts = sessionData.courts.filter(c => c.id !== courtId);
+      saveToStorage();
+      render();
+    }
+
+    function addPlayer() {
+      const input = document.getElementById('playerNameInput');
+      const name = input.value.trim();
+      if (!name) return;
+
+      sessionData.players.push({
+        id: Date.now(),
+        name,
+        matchesPlayed: 0,
+        wins: 0,
+        losses: 0,
+        playing: false
+      });
+
+      input.value = '';
+      saveToStorage();
+      render();
+    }
+
+    function removePlayer(id) {
+      const isPlaying = sessionData.courts.some(c => c.activeMatch && c.activeMatch.players.some(p => p.id === id));
+      if (isPlaying) {
+        alert("Cannot remove a player who is currently in an active match.");
+        return;
+      }
+      sessionData.players = sessionData.players.filter(p => p.id !== id);
+      saveToStorage();
+      render();
+    }
+
+    /* MATCH GENERATION LOGIC (Respects Max Cap) */
+    function generateMatchForCourt(courtId) {
+      const court = sessionData.courts.find(c => c.id === courtId);
+      if (!court) return;
+      if (court.activeMatch) return alert(`${court.name} is currently occupied.`);
+
+      const requiredCount = sessionData.mode === 'doubles' ? 4 : 2;
+
+      // Filter available players: Not playing AND matchesPlayed < maxGames
+      const available = sessionData.players.filter(p => {
+        if (p.playing) return false;
+        if (sessionData.maxGames !== null && p.matchesPlayed >= sessionData.maxGames) return false;
+        return true;
+      });
+
+      if (available.length < requiredCount) {
+        alert(`Need at least ${requiredCount} eligible players available for ${court.name}. (Check if players reached their max game limit).`);
+        return;
+      }
+
+      // Priority queue: Least matches played first
+      available.sort((a, b) => a.matchesPlayed - b.matchesPlayed);
+
+      const selected = available.slice(0, requiredCount);
+      selected.forEach(p => p.playing = true);
+
+      let team1, team2;
+      if (sessionData.mode === 'doubles') {
+        team1 = [selected[0], selected[3]];
+        team2 = [selected[1], selected[2]];
+      } else {
+        team1 = [selected[0]];
+        team2 = [selected[1]];
+      }
+
+      court.activeMatch = { team1, team2, players: selected };
+      saveToStorage();
+      render();
+    }
+
+    function generateAutoMatch() {
+      const emptyCourt = sessionData.courts.find(c => !c.activeMatch);
+      if (!emptyCourt) {
+        alert("All courts are currently busy! Finish a match or add a new court.");
+        return;
+      }
+      generateMatchForCourt(emptyCourt.id);
+    }
+
+    function recordWinner(courtId, winningTeamNum) {
+      const court = sessionData.courts.find(c => c.id === courtId);
+      if (!court || !court.activeMatch) return;
+
+      const winners = winningTeamNum === 1 ? court.activeMatch.team1 : court.activeMatch.team2;
+      const losers = winningTeamNum === 1 ? court.activeMatch.team2 : court.activeMatch.team1;
+
+      winners.forEach(w => {
+        const p = sessionData.players.find(x => x.id === w.id);
+        if (p) { p.wins++; p.matchesPlayed++; p.playing = false; }
+      });
+
+      losers.forEach(l => {
+        const p = sessionData.players.find(x => x.id === l.id);
+        if (p) { p.losses++; p.matchesPlayed++; p.playing = false; }
+      });
+
+      court.activeMatch = null;
+      saveToStorage();
+      render();
+    }
+
+    /* RENDER DASHBOARD UI */
+    function render() {
+      renderCourts();
+      renderQueue();
+      renderStandings();
+    }
+
+    function renderCourts() {
+      const grid = document.getElementById('courtsGrid');
+      document.getElementById('courtCountDisplay').textContent = sessionData.courts.length;
+      grid.innerHTML = '';
+
+      sessionData.courts.forEach(court => {
+        const div = document.createElement('div');
+        div.className = `court-card ${court.activeMatch ? 'has-match' : ''}`;
+
+        if (!court.activeMatch) {
+          div.innerHTML = `
+            <div class="court-title">
+              <span>${court.name}</span>
+              ${sessionData.courts.length > 1 ? `<button class="btn-danger" style="padding: 2px 6px;" onclick="removeCourt(${court.id})">✕ Remove</button>` : ''}
+            </div>
+            <p style="text-align: center; color: var(--text-muted); font-size: 0.8rem; margin: 15px 0;">Court is Available</p>
+            <button class="btn-outline" style="width: 100%; font-size: 0.75rem;" onclick="generateMatchForCourt(${court.id})">Assign Match Here</button>
+          `;
+        } else {
+          const t1 = court.activeMatch.team1.map(p => p.name).join(' & ');
+          const t2 = court.activeMatch.team2.map(p => p.name).join(' & ');
+
+          div.innerHTML = `
+            <div class="court-title">
+              <span>${court.name} - LIVE</span>
+              <span class="tag">In Play</span>
+            </div>
+            <div class="match-teams">
+              <div class="team">
+                <div class="team-players">${t1}</div>
+                <button class="btn-primary" style="width: 100%; font-size: 0.7rem; padding: 6px;" onclick="recordWinner(${court.id}, 1)">Team 1 Win</button>
+              </div>
+              <div class="vs">VS</div>
+              <div class="team">
+                <div class="team-players">${t2}</div>
+                <button class="btn-primary" style="width: 100%; font-size: 0.7rem; padding: 6px;" onclick="recordWinner(${court.id}, 2)">Team 2 Win</button>
+              </div>
+            </div>
+          `;
+        }
+        grid.appendChild(div);
+      });
+    }
+
+    function renderQueue() {
+      const queueList = document.getElementById('playerQueue');
+      const queueCount = document.getElementById('queueCount');
+      
+      const available = sessionData.players.filter(p => !p.playing);
+      available.sort((a, b) => a.matchesPlayed - b.matchesPlayed);
+
+      queueCount.textContent = available.length;
+      queueList.innerHTML = '';
+
+      if (available.length === 0) {
+        queueList.innerHTML = `<li style="color: var(--text-muted); text-align: center; padding: 12px; font-size: 0.85rem;">Queue is empty. Add players to begin.</li>`;
+        return;
+      }
+
+      available.forEach(p => {
+        const hasReachedCap = sessionData.maxGames !== null && p.matchesPlayed >= sessionData.maxGames;
+        const li = document.createElement('li');
+        li.className = 'player-item';
+        li.innerHTML = `
+          <div>
+            <strong>${p.name}</strong>
+            ${hasReachedCap ? `<span class="tag tag-danger" style="margin-left: 6px;">MAX REACHED (${p.matchesPlayed}/${sessionData.maxGames})</span>` : ''}
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <span class="tag">${p.matchesPlayed} games</span>
+            <button class="btn-danger" onclick="removePlayer(${p.id})">✕</button>
+          </div>
+        `;
+        queueList.appendChild(li);
+      });
+    }
+
+    function renderStandings() {
+      const tbody = document.getElementById('standingsTable');
+      tbody.innerHTML = '';
+
+      const sorted = [...sessionData.players].sort((a, b) => {
+        const winRateA = a.matchesPlayed > 0 ? (a.wins / a.matchesPlayed) : 0;
+        const winRateB = b.matchesPlayed > 0 ? (b.wins / b.matchesPlayed) : 0;
+        if (b.wins !== a.wins) return b.wins - a.wins;
+        return winRateB - winRateA;
+      });
+
+      if (sorted.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 15px;">No players registered.</td></tr>`;
+        return;
+      }
+
+      sorted.forEach((p, index) => {
+        const winRate = p.matchesPlayed > 0 ? ((p.wins / p.matchesPlayed) * 100).toFixed(0) : 0;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="color: var(--text-muted);">${index + 1}</td>
+          <td><strong>${p.name}</strong> ${p.playing ? '🎾' : ''}</td>
+          <td>${p.matchesPlayed}${sessionData.maxGames ? `/${sessionData.maxGames}` : ''}</td>
+          <td>${p.wins}-${p.losses}</td>
+          <td class="win-rate">${winRate}%</td>
+          <td style="text-align: right;"><button class="btn-danger" onclick="removePlayer(${p.id})">✕</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Expose Functions Globally
+    window.toggleAuthDrawer = toggleAuthDrawer;
+    window.loginOrRegister = loginOrRegister;
+    window.logout = logout;
+    window.launchMatchGame = launchMatchGame;
+    window.resumeSession = resumeSession;
+    window.clearSavedData = clearSavedData;
+    window.goHome = goHome;
+    window.addCourt = addCourt;
+    window.removeCourt = removeCourt;
+    window.addPlayer = addPlayer;
+    window.removePlayer = removePlayer;
+    window.generateMatchForCourt = generateMatchForCourt;
+    window.generateAutoMatch = generateAutoMatch;
+    window.recordWinner = recordWinner;
+
+    checkSavedSession();
+  </script>
+</body>
+</html>
+
