@@ -1,3 +1,4 @@
+
 import admin from 'firebase-admin';
 import { NextResponse } from 'next/server';
 
@@ -15,19 +16,6 @@ if (!admin.apps.length) {
     }),
     databaseURL: process.env.FIREBASE_DATABASE_URL,
   });
-}
-
-// Helper to verify Firebase Auth ID Token from Authorization header
-async function verifyUser(request) {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) return null;
-  const token = authHeader.split('Bearer ')[1];
-  try {
-    return await admin.auth().verifyIdToken(token);
-  } catch (error) {
-    console.error("Token verification failed:", error.message);
-    return null;
-  }
 }
 
 export async function GET(request) {
@@ -53,23 +41,26 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const decodedToken = await verifyUser(request);
-    if (!decodedToken) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid or missing token' }, { status: 401 });
+    const body = await request.json();
+
+    // Generate anonymous session server-side if requested
+    if (body.createSession) {
+      const userRecord = await admin.auth().createUser({});
+      return NextResponse.json({ sessionId: userRecord.uid });
     }
 
-    const { sessionData } = await request.json();
-    if (!sessionData) {
-      return NextResponse.json({ error: 'Missing sessionData payload' }, { status: 400 });
+    const { sessionId, sessionData } = body;
+    if (!sessionId || !sessionData) {
+      return NextResponse.json({ error: 'Missing sessionId or sessionData payload' }, { status: 400 });
     }
 
-    // Write to Realtime Database under the authenticated user's UID
-    await admin.database().ref(`sessions/${decodedToken.uid}`).set({ 
+    // Write session data to Realtime Database
+    await admin.database().ref(`sessions/${sessionId}`).set({ 
       sessionData,
       updatedAt: Date.now()
     });
 
-    return NextResponse.json({ success: true, uid: decodedToken.uid });
+    return NextResponse.json({ success: true, sessionId });
   } catch (error) {
     console.error("POST Session Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -78,12 +69,14 @@ export async function POST(request) {
 
 export async function DELETE(request) {
   try {
-    const decodedToken = await verifyUser(request);
-    if (!decodedToken) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid or missing token' }, { status: 401 });
+    const { searchParams } = new URL(request.url);
+    const sessionId = searchParams.get('sessionId');
+
+    if (!sessionId) {
+      return NextResponse.json({ error: 'Missing sessionId parameter' }, { status: 400 });
     }
 
-    await admin.database().ref(`sessions/${decodedToken.uid}`).remove();
+    await admin.database().ref(`sessions/${sessionId}`).remove();
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("DELETE Session Error:", error);
