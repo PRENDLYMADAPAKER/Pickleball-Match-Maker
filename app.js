@@ -20,14 +20,15 @@ const getEnv = (key, fallback) => {
 };
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDAtr2j0iQk1PuYLcqJjIw1IqfsyCCLUUY", // Paste copied key here
-  authDomain: "picklequeue.firebaseapp.com",
-  databaseURL: "https://picklequeue-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "picklequeue",
-  storageBucket: "picklequeue.firebasestorage.app",
-  messagingSenderId: "663355197557",
-  appId: "1:663355197557:web:4c2abd694e26fd2d939c3c",
-  measurementId: "G-8YZC5R007M"
+  // Corrected 'pickleqeue' -> 'picklequeue' in authDomain, databaseURL, projectId, & storageBucket
+  apiKey: getEnv("NEXT_PUBLIC_FIREBASE_API_KEY", "AIzaSyDAtr2j0iQk1PuYLcqJjIw1IqfsyCCLUUY"), //[span_1](start_span)[span_1](end_span)
+  authDomain: getEnv("NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN", "picklequeue.firebaseapp.com"), //[span_2](start_span)[span_2](end_span)
+  databaseURL: getEnv("NEXT_PUBLIC_FIREBASE_DATABASE_URL", "https://picklequeue-default-rtdb.asia-southeast1.firebasedatabase.app"), //[span_3](start_span)[span_3](end_span)
+  projectId: getEnv("NEXT_PUBLIC_FIREBASE_PROJECT_ID", "picklequeue"), //[span_4](start_span)[span_4](end_span)
+  storageBucket: getEnv("NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET", "picklequeue.firebasestorage.app"), //[span_5](start_span)[span_5](end_span)
+  messagingSenderId: getEnv("NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID", "663355197557"), //[span_6](start_span)[span_6](end_span)
+  appId: getEnv("NEXT_PUBLIC_FIREBASE_APP_ID", "1:663355197557:web:4c2abd694e26fd2d93903c"), //[span_7](start_span)[span_7](end_span)
+  measurementId: getEnv("NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID", "G-8YZC5R007M") //[span_8](start_span)[span_8](end_span)
 };
 
 const app = initializeApp(firebaseConfig);
