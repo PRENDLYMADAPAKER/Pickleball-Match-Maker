@@ -234,35 +234,48 @@ function toggleAuthDrawer() {
 }
 
 async function loginOrRegister() {
-  const emailEl = document.getElementById('loginEmail');
-  const passEl = document.getElementById('loginPassword');
-  const email = emailEl ? emailEl.value.trim() : '';
-  const password = passEl ? passEl.value.trim() : '';
+  const email = document.getElementById('loginEmail')?.value.trim();
+  const password = document.getElementById('loginPassword')?.value.trim();
+  
+  // Replace with your Firebase Web API Key (Firebase Console > Project Settings)
+  const apiKey = "AIzaSyDAtr2j0iQk1PuYLcqJjIw1IqfsyCCLUUY";
 
   if (!email || !password) return alert("Please enter email and password.");
 
   try {
-    const res = await fetch('/api/session', {
+    const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'login', email, password })
+      body: JSON.stringify({ email, password, returnSecureToken: true })
     });
 
-    const contentType = res.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      throw new Error(`Server route not found or returned non-JSON (${res.status}). Verify app/api/session/route.js path.`);
+    const data = await res.json();
+
+    if (data.error) {
+      // Auto-register if user account is not found
+      if (data.error.message === 'EMAIL_NOT_FOUND' || data.error.message === 'INVALID_LOGIN_CREDENTIALS') {
+        const signUpRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, returnSecureToken: true })
+        });
+        const signUpData = await signUpRes.json();
+        if (signUpData.error) throw new Error(signUpData.error.message);
+
+        localStorage.setItem(SESSION_ID_KEY, signUpData.localId);
+        localStorage.setItem(USER_EMAIL_KEY, signUpData.email);
+        updateAuthUI();
+        toggleAuthDrawer();
+        return alert("Account created and logged in!");
+      }
+      throw new Error(data.error.message);
     }
 
-    const data = await res.json();
-    if (!res.ok || data.error) throw new Error(data.error || 'Authentication failed');
-
-    localStorage.setItem(SESSION_ID_KEY, data.sessionId);
+    localStorage.setItem(SESSION_ID_KEY, data.localId);
     localStorage.setItem(USER_EMAIL_KEY, data.email);
-    
     updateAuthUI();
     toggleAuthDrawer();
-    alert(data.isNew ? "Account created successfully!" : "Logged in successfully!");
-    saveToStorage();
+    alert("Logged in successfully!");
   } catch (error) {
     alert("Auth Error: " + error.message);
   }
