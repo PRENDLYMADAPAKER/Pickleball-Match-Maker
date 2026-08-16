@@ -31,7 +31,7 @@ export default async function handler(req, res) {
     const sessionId = req.query.sessionId;
 
     if (req.method === 'GET') {
-      // Real-time Metrics & Registered Clubs Sync
+      // Fetch Live Global Metrics
       if (req.query.getMetrics === 'true') {
         const [sessionsSnap, statsSnap, clubsSnap] = await Promise.all([
           db.ref('sessions').once('value'),
@@ -40,13 +40,13 @@ export default async function handler(req, res) {
         ]);
 
         const sessionsVal = sessionsSnap.val() || {};
-        // Filter active sessions that have an active title or players
-        const activeSessionsCount = Object.values(sessionsVal).filter(s => {
-          const data = s.sessionData || s;
-          return data && (data.title || (data.players && data.players.length > 0));
-        }).length;
+        
+        // Count all currently active game sessions (Guest + Logged in)
+        const activeSessionsCount = Object.keys(sessionsVal).length;
 
+        // Total completed sessions accumulated across all users
         const sessionsRunCount = statsSnap.val() || 0;
+
         const clubsVal = clubsSnap.val() || {};
         const clubsList = Object.values(clubsVal);
 
@@ -76,13 +76,14 @@ export default async function handler(req, res) {
         }
       }
 
-      // Save Registered Club to Firebase DB
+      // Save Registered Club
       if (body?.action === 'saveClub' && body?.club) {
         await db.ref(`clubs/${body.club.id}`).set(body.club);
         return res.status(200).json({ success: true });
       }
 
-      // End Session: Increment global counter & remove active session
+      // END GAME MATCH SESSION (Guest or Logged In)
+      // Removes active session record and adds +1 to Total Sessions Run
       if (body?.action === 'endSession' && body?.sessionId) {
         await Promise.all([
           db.ref(`sessions/${body.sessionId}`).remove(),
@@ -91,10 +92,17 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true });
       }
 
+      // OPTIONAL: Reset ghost active test sessions if needed
+      if (body?.action === 'resetActiveSessions') {
+        await db.ref('sessions').remove();
+        return res.status(200).json({ success: true });
+      }
+
       if (!body?.sessionId || !body?.sessionData) {
         return res.status(400).json({ error: 'Missing sessionId or sessionData' });
       }
 
+      // Save Active Session (Guest or Logged In)
       await db.ref(`sessions/${body.sessionId}`).set({
         sessionData: body.sessionData,
         updatedAt: Date.now()
