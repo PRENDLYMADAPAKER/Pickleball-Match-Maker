@@ -14,7 +14,7 @@ function initFirebaseAdmin() {
   const databaseURL = process.env.FIREBASE_DATABASE_URL;
 
   if (!projectId || !privateKey || !clientEmail || !databaseURL) {
-    throw new Error('Missing Firebase environment variables on Vercel');
+    throw new Error('Missing Firebase environment variables');
   }
 
   admin.initializeApp({
@@ -30,8 +30,19 @@ export default async function handler(req, res) {
     const db = firebase.database();
     const sessionId = req.query.sessionId;
 
+    // Set CORS headers for seamless API access
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+      return res.status(200).end();
+    }
+
+    /* ==========================================
+       1. GET METRICS & LIVE SESSIONS
+       ========================================== */
     if (req.method === 'GET') {
-      // Fetch Live Global Metrics
       if (req.query.getMetrics === 'true') {
         const [sessionsSnap, statsSnap, clubsSnap] = await Promise.all([
           db.ref('sessions').once('value'),
@@ -41,10 +52,14 @@ export default async function handler(req, res) {
 
         const sessionsVal = sessionsSnap.val() || {};
         
-        // Count all currently active game sessions (Guest + Logged in)
-        const activeSessionsCount = Object.keys(sessionsVal).length;
+        // Filter active sessions to include only valid, active sessions
+        const activeSessionsCount = Object.values(sessionsVal).filter((session) => {
+          if (!session) return false;
+          const data = session.sessionData || session;
+          return data && data.isStarted === true;
+        }).length;
 
-        // Total completed sessions accumulated across all users
+        // Total completed sessions from stats node
         const sessionsRunCount = statsSnap.val() || 0;
 
         const clubsVal = clubsSnap.val() || {};
@@ -59,31 +74,36 @@ export default async function handler(req, res) {
       }
 
       if (!sessionId) return res.status(400).json({ error: 'Missing sessionId' });
+      
       const snapshot = await db.ref(`sessions/${sessionId}`).once('value');
       const val = snapshot.val();
       return res.status(200).json({ sessionData: val?.sessionData || val || null });
     }
 
+    /* ==========================================
+       2. POST / SAVE / END GAME SESSION
+       ========================================== */
     if (req.method === 'POST') {
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
 
+      // Guest/User ID Generation
       if (body?.createSession) {
         try {
           const userRecord = await firebase.auth().createUser({});
           return res.status(200).json({ sessionId: userRecord.uid });
         } catch {
-          return res.status(200).json({ sessionId: 'sess_' + Math.random().toString(36).substring(2, 12) });
+          return res.status(200).json({ sessionId: 'sess_' + Math.random().toString(36).substring(2, 12) + Date.now().toString(36) });
         }
       }
 
-      // Save Registered Club
+      // Save Pickleball Club Registration
       if (body?.action === 'saveClub' && body?.club) {
         await db.ref(`clubs/${body.club.id}`).set(body.club);
         return res.status(200).json({ success: true });
       }
 
-      // END GAME MATCH SESSION (Guest or Logged In)
-      // Removes active session record and adds +1 to Total Sessions Run
+      // END MATCH GAME SESSION
+      // Removes active live game from sessions/ and increments stats/sessionsRun by +1
       if (body?.action === 'endSession' && body?.sessionId) {
         await Promise.all([
           db.ref(`sessions/${body.sessionId}`).remove(),
@@ -92,7 +112,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true });
       }
 
-      // OPTIONAL: Reset ghost active test sessions if needed
+      // Reset active sessions if needed
       if (body?.action === 'resetActiveSessions') {
         await db.ref('sessions').remove();
         return res.status(200).json({ success: true });
@@ -102,14 +122,18 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Missing sessionId or sessionData' });
       }
 
-      // Save Active Session (Guest or Logged In)
+      // SAVE/UPDATE ACTIVE SESSION
       await db.ref(`sessions/${body.sessionId}`).set({
         sessionData: body.sessionData,
         updatedAt: Date.now()
       });
+
       return res.status(200).json({ success: true, sessionId: body.sessionId });
     }
 
+    /* ==========================================
+       3. DELETE SESSION
+       ========================================== */
     if (req.method === 'DELETE') {
       if (!sessionId) return res.status(400).json({ error: 'Missing sessionId' });
       await db.ref(`sessions/${sessionId}`).remove();
@@ -118,6 +142,7 @@ export default async function handler(req, res) {
 
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error) {
+    console.error("Firebase API Error:", error);
     return res.status(500).json({ error: error.message });
   }
 }
